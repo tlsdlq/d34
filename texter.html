@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>플레이스홀더</title>
+    <style>
+        /* 모든 여백과 스크롤바를 없애고, 배경을 설정합니다. */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 스크롤바 숨기기 */
+            background-color: #333; /* 캔버스 바깥의 기본 배경색 */
+        }
+        /* 캔버스를 화면에 표시하고, 그림자가 부드럽게 보이도록 합니다. */
+        #placeholderCanvas {
+            display: block;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <!-- 모든 그림은 이 캔버스 요소 하나에 그려집니다. -->
+    <canvas id="placeholderCanvas"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('placeholderCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function draw() {
+                // 1. URL에서 모든 파라미터를 읽어옵니다.
+                const params = new URLSearchParams(window.location.search);
+
+                // 사이즈 설정 (기본값: 전체 브라우저 창 크기)
+                const sizeParam = params.get('size')?.split('x');
+                const width = parseInt(sizeParam?.[0], 10) || window.innerWidth;
+                const height = parseInt(sizeParam?.[1], 10) || window.innerHeight;
+
+                // 색상 설정 (기본값: 회색 계열)
+                const bgColor = params.get('bgColor') || '#CCCCCC';
+                const textColor = params.get('textColor') || '#888888';
+
+                // 텍스트 설정 (기본값: 이미지 크기)
+                // URL 파라미터로 받은 텍스트는 자동으로 줄바꿈(\n)이 적용됩니다.
+                const text = params.get('text') || `${width} x ${height}`;
+
+                // 폰트 크기 설정 (기본값: 너비에 비례)
+                const customFontSize = parseInt(params.get('fontSize'), 10);
+                
+                // 캔버스 크기를 설정합니다.
+                canvas.width = width;
+                canvas.height = height;
+                // 디바이스 픽셀 비율에 맞춰 선명하게 렌더링 (레티나 디스플레이 대응)
+                const dpr = window.devicePixelRatio || 1;
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+
+
+                // 2. 배경을 그립니다.
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, width, height);
+
+                // 3. 텍스트를 그립니다. (엔터 지원)
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                const lines = text.split('\n'); // 텍스트를 줄바꿈(\n) 기준으로 나눕니다.
+                const lineCount = lines.length;
+
+                // 동적 폰트 크기 계산 (사용자 지정 값이 없으면)
+                const fontSize = customFontSize || Math.max(16, Math.floor(width / (Math.max(10, text.length / lineCount) * 0.8)));
+                ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+
+                // 여러 줄의 텍스트를 세로로도 중앙 정렬하기 위한 계산
+                const lineHeight = fontSize * 1.2;
+                const totalTextHeight = lineHeight * lineCount;
+                let startY = (height / 2) - (totalTextHeight / 2) + (lineHeight / 2);
+
+                // 각 줄을 순서대로 그립니다.
+                lines.forEach(line => {
+                    ctx.fillText(line, width / 2, startY);
+                    startY += lineHeight; // 다음 줄을 그릴 y 좌표
+                });
+            }
+            
+            // 페이지가 로드될 때 한 번 그립니다.
+            draw();
+
+            // 만약 URL에 사이즈가 지정되지 않았다면, 브라우저 창 크기가 바뀔 때마다 다시 그리도록 합니다.
+            if (!new URLSearchParams(window.location.search).has('size')) {
+                window.addEventListener('resize', draw);
+            }
+        });
+    </script>
+</body>
+</html>
