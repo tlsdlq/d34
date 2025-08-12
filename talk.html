@@ -14,69 +14,54 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: hidden; /* 페이지 자체의 스크롤바는 비활성화 */
             background-color: #0c0a14;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
-        /* 1. 전체를 감싸는 컨테이너 */
+        /* 1. 이제 컨테이너가 전체 화면을 차지합니다. */
         #placeholder-container {
-            position: relative; /* 자식 요소의 absolute 포지셔닝 기준 */
-            box-shadow: 0 10px 50px rgba(80, 160, 255, 0.25);
-            border-radius: 12px;
-            overflow: hidden; /* 내부 요소가 모서리를 벗어나지 않도록 클리핑 */
+            position: relative;
+            width: 100vw;
+            height: 100vh;
         }
 
-        /* 2. 배경 애니메이션을 위한 캔버스 (가장 아래에 배치) */
+        /* 2. 배경 애니메이션을 위한 캔버스 */
         #cosmic-canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1; /* 맨 뒤로 보냄 */
+            z-index: 1; /* 맨 뒤에 배치 */
         }
         
-        /* 3. 텍스트와 스크롤을 담당하는 div (캔버스 위에 배치) */
+        /* 3. 텍스트와 스크롤을 담당하는 div */
         #text-scroller {
             position: relative;
-            z-index: 2; /* 캔버스 위로 올림 */
+            z-index: 2; /* 캔버스 위에 배치 */
             width: 100%;
             height: 100%;
-            overflow-y: auto; /* 내용이 넘칠 때만 세로 스크롤바 자동 생성 */
-            color: white; /* 기본 텍스트 색상 */
+            overflow-y: auto; /* 내용이 넘칠 때만 세로 스크롤바 표시 */
+            color: white;
             font: 600 50px 'Poppins', sans-serif;
             text-align: center;
-            box-sizing: border-box; /* 패딩이 크기에 포함되도록 설정 */
-            padding: 5% 10%; /* 위아래, 좌우 여백 */
+            box-sizing: border-box;
+            padding: 5vh 10vw; /* 화면 크기에 비례하는 여백 */
 
-            /* 스크롤바 디자인 (웹킷 브라우저용) */
-            &::-webkit-scrollbar {
-                width: 10px;
-            }
-            &::-webkit-scrollbar-track {
-                background: rgba(0, 0, 0, 0.2);
-            }
-            &::-webkit-scrollbar-thumb {
-                background-color: rgba(255, 255, 255, 0.4);
-                border-radius: 5px;
-            }
-            &::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(255, 255, 255, 0.6);
-            }
+            /* 스크롤바 디자인 */
+            &::-webkit-scrollbar { width: 10px; }
+            &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+            &::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.4); border-radius: 5px; }
+            &::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.6); }
         }
         
-        /* 텍스트 줄바꿈을 위한 설정 */
         #text-content {
-             white-space: pre-wrap; /* \n 문자를 줄바꿈으로 인식 */
-             word-break: break-word; /* 긴 단어가 영역을 벗어나지 않도록 단어 단위로 줄바꿈 */
+             white-space: pre-wrap;
+             word-break: break-word;
         }
     </style>
 </head>
 <body>
-    <!-- 구조: 컨테이너 > 캔버스(배경) + div(텍스트) -->
     <div id="placeholder-container">
         <canvas id="cosmic-canvas"></canvas>
         <div id="text-scroller">
@@ -92,7 +77,7 @@
             const ctx = canvas.getContext('2d');
             
             let stars = [];
-            const numStars = 300;
+            const numStars = 500; // 화면이 커졌으므로 별 개수를 늘려 밀도를 유지
 
             function initStars(width, height) {
                 stars = [];
@@ -123,7 +108,6 @@
                 });
             }
             
-            // 애니메이션 루프: 이제 배경만 그립니다.
             function animate() {
                 const dpr = window.devicePixelRatio || 1;
                 drawCosmicBackground(canvas.width / dpr, canvas.height / dpr);
@@ -131,26 +115,21 @@
             }
 
             function setup() {
-                const params = new URLSearchParams(window.location.search);
-                
-                // 1. 크기 설정: 컨테이너의 크기를 조절합니다.
-                const sizeParam = params.get('size')?.split('x');
-                const width = parseInt(sizeParam?.[0], 10) || window.innerWidth * 0.8;
-                const height = parseInt(sizeParam?.[1], 10) || window.innerHeight * 0.7;
+                // 1. 항상 현재 창의 전체 크기를 사용합니다.
+                const width = window.innerWidth;
+                const height = window.innerHeight;
 
-                container.style.width = `${width}px`;
-                container.style.height = `${height}px`;
-
-                // 2. 캔버스 해상도 설정 (DPR 대응)
+                // 2. 캔버스 해상도 설정
                 const dpr = window.devicePixelRatio || 1;
                 canvas.width = width * dpr;
                 canvas.height = height * dpr;
                 ctx.scale(dpr, dpr);
 
-                // 3. 텍스트 내용 및 스타일 설정
-                const defaultText = `Performance Optimized!\n\nThis placeholder now uses a separate div for text, leveraging the browser's native, super-fast scrolling. The canvas is only responsible for the background animation, resulting in a buttery-smooth experience.`;
+                // 3. 텍스트 내용 설정
+                const params = new URLSearchParams(window.location.search);
+                const defaultText = `Full Screen Experience\n\nThis is a high-performance, interactive placeholder that fills the entire screen.`;
                 const text = params.get('text') || defaultText;
-                const textColor = params.get('textColor'); // URL로 textColor 지정 가능
+                const textColor = params.get('textColor');
 
                 textContentDiv.textContent = text;
                 if(textColor) {
@@ -163,13 +142,11 @@
 
             // --- 실행 ---
             setup();
-            animate(); // 애니메이션 시작
-
-            // 사이즈 미지정 시, 브라우저 창 크기가 바뀌면 다시 설정
-            if (!new URLSearchParams(window.location.search).has('size')) {
-                window.addEventListener('resize', setup);
-            }
+            animate();
+            
+            // 브라우저 창 크기가 바뀔 때마다 다시 설정합니다.
+            window.addEventListener('resize', setup);
         });
     </script>
 </body>
-</html>```
+</html>
