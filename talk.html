@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>속마음</title>
+    <title>띄어쓰기 기준 자동 줄바꿈 플레이с홀더</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
@@ -47,9 +47,11 @@
             font: 600 50px 'Poppins', sans-serif;
             text-align: center;
             line-height: 1.5;
-            white-space: pre-wrap; /* \n 수동 줄바꿈도 지원 */
-            word-break: break-word; /* CSS 표준 자동 줄바꿈 */
+            white-space: pre-wrap; /* \n 수동 줄바꿈 지원 */
             
+            /* [핵심 수정] 단어를 강제로 자르는 속성 제거. 이제 띄어쓰기에서만 줄바꿈됩니다. */
+            /* word-break: break-word; <-- 이 줄을 삭제했습니다. */
+
             padding-top: 0; 
             padding-bottom: 5vh;
             box-sizing: border-box;
@@ -102,8 +104,7 @@
                 const userText = params.get('text');
                 const textColor = params.get('textColor');
                 
-                // [핵심 수정] 띄어쓰기를 변환하는 로직을 제거하고, 기본 텍스트를 수정했습니다.
-                const defaultText = `This is a very long sentence to demonstrate the automatic word wrapping feature which is handled natively by CSS.`;
+                const defaultText = `This text wraps correctly at spaces. Longwordswithoutspaceswillnotbebroken.`;
                 
                 textContentDiv.textContent = userText || defaultText;
                 
