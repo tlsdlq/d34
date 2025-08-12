@@ -3,152 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>이미지 대사 생성기</title>
+    <title>아름다운 플레이스홀더 생성기</title>
     <style>
+        /* 모든 여백과 스크롤바를 없애고, 배경을 설정합니다. */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
+            overflow: hidden; /* 스크롤바 숨기기 */
+            background-color: #2c3e50; /* 캔버스 바깥의 기본 배경색 */
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #222;
         }
-        canvas {
-            box-shadow: 0 5px 30px rgba(0,0,0,0.6);
-            /* 모바일에서 이미지가 화면을 넘어가지 않도록 처리 */
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        /* 로딩 메시지 스타일 */
-        #loading-message {
-            color: white;
-            font-size: 24px;
-            font-family: sans-serif;
+        /* 캔버스를 화면에 표시하고, 그림자가 부드럽게 보이도록 합니다. */
+        #placeholderCanvas {
+            display: block;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            border-radius: 8px; /* 모서리를 부드럽게 */
         }
     </style>
 </head>
 <body>
-    <canvas id="mainCanvas"></canvas>
-    <div id="loading-message">이미지를 불러오는 중... URL에 imageUrl 파라미터를 추가하세요.</div>
+    <!-- 모든 그림은 이 캔버스 요소 하나에 그려집니다. -->
+    <canvas id="placeholderCanvas"></canvas>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const canvas = document.getElementById('mainCanvas');
+            const canvas = document.getElementById('placeholderCanvas');
             const ctx = canvas.getContext('2d');
-            const loadingMessage = document.getElementById('loading-message');
 
-            // --- 텍스트 자동 줄바꿈 함수 ---
-            function wrapText(context, text, x, y, maxWidth, lineHeight) {
+            /**
+             * 긴 텍스트를 캔버스 너비에 맞게 자동으로 줄바꿈해주는 함수
+             * @param {CanvasRenderingContext2D} context - 캔버스 2D 컨텍스트
+             * @param {string} text - 줄바꿈을 적용할 전체 텍스트
+             * @param {number} maxWidth - 텍스트가 그려질 최대 너비
+             * @returns {string[]} 줄바꿈이 적용된 텍스트 라인 배열
+             */
+            function wrapText(context, text, maxWidth) {
                 const words = text.split(' ');
-                let line = '';
-                const lines = [];
+                let lines = [];
+                let currentLine = words[0] || '';
 
-                for(let n = 0; n < words.length; n++) {
-                    const testLine = line + words[n] + ' ';
-                    const metrics = context.measureText(testLine);
-                    const testWidth = metrics.width;
-                    if (testWidth > maxWidth && n > 0) {
-                        lines.push(line);
-                        line = words[n] + ' ';
+                for (let i = 1; i < words.length; i++) {
+                    const word = words[i];
+                    const width = context.measureText(currentLine + " " + word).width;
+                    if (width < maxWidth) {
+                        currentLine += " " + word;
                     } else {
-                        line = testLine;
+                        lines.push(currentLine);
+                        currentLine = word;
                     }
                 }
-                lines.push(line);
-                
-                lines.forEach((l, i) => {
-                    context.fillText(l.trim(), x, y + (i * lineHeight));
+                lines.push(currentLine);
+                return lines;
+            }
+
+            /**
+             * HSL 색상 값을 기반으로 랜덤하고 보기 좋은 색상을 생성하는 함수
+             * @returns {string} CSS hex 색상 코드 (예: '#aabbcc')
+             */
+            function getRandomPleasingColor() {
+                const hue = Math.floor(Math.random() * 360);
+                const saturation = Math.floor(Math.random() * 20) + 70; // 70-90% 채도
+                const lightness = Math.floor(Math.random() * 20) + 65;  // 65-85% 명도 (파스텔톤)
+                return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            }
+            
+            /**
+             * HSL 색상을 더 어둡거나 밝게 조정하여 그라데이션 효과를 주는 함수
+             * @param {string} hslColor - 원본 HSL 색상 문자열
+             * @param {number} amount - 조정할 명도 (-100 ~ 100)
+             * @returns {string} 조정된 HSL 색상 문자열
+             */
+            function adjustLightness(hslColor, amount) {
+                return hslColor.replace(/(\d+)%\)/, (match, p1) => {
+                    let lightness = parseInt(p1, 10) + amount;
+                    lightness = Math.max(0, Math.min(100, lightness)); // 0-100 범위 유지
+                    return `${lightness}%)`;
                 });
             }
 
             function draw() {
+                // 1. URL 파라미터 읽기
                 const params = new URLSearchParams(window.location.search);
 
-                const imageUrl = params.get('imageUrl');
-                if (!imageUrl) {
-                    loadingMessage.style.display = 'block';
-                    canvas.style.display = 'none';
-                    return;
-                }
+                // 사이즈 설정 (기본값: 브라우저 창 크기의 80%)
+                const sizeParam = params.get('size')?.split('x');
+                const defaultWidth = window.innerWidth * 0.9;
+                const defaultHeight = window.innerHeight * 0.9;
+                const width = parseInt(sizeParam?.[0], 10) || defaultWidth;
+                const height = parseInt(sizeParam?.[1], 10) || defaultHeight;
+
+                // 캔버스 크기 및 DPR 설정 (레티나 디스플레이 대응)
+                const dpr = window.devicePixelRatio || 1;
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+
+                // 색상 설정
+                const userBgColor = params.get('bgColor');
+                const startColor = userBgColor || getRandomPleasingColor();
+                const endColor = adjustLightness(startColor, -20); // 살짝 어두운 색으로 그라데이션
+
+                // 배경색의 밝기를 계산하여 적절한 텍스트 색상(검정/흰색) 자동 선택
+                const r = parseInt(startColor.slice(1, 3), 16);
+                const g = parseInt(startColor.slice(3, 5), 16);
+                const b = parseInt(startColor.slice(5, 7), 16);
+                const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b; // 밝기 계산 공식
+                const defaultTextColor = luma < 140 ? '#FFFFFF' : '#333333';
+                const textColor = params.get('textColor') || defaultTextColor;
+
+                // 텍스트 설정
+                const text = params.get('text') || `${width} x ${height}`;
+
+                // 2. 아름다운 그라데이션 배경 그리기
+                const gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, startColor);
+                gradient.addColorStop(1, endColor);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
                 
-                loadingMessage.style.display = 'none';
-                canvas.style.display = 'block';
+                // 3. 텍스트 그리기 (자동 줄바꿈 지원)
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // 동적 폰트 크기 계산
+                const customFontSize = parseInt(params.get('fontSize'), 10);
+                const baseFontSize = Math.max(16, Math.floor(width / 15));
+                const fontSize = customFontSize || baseFontSize;
+                ctx.font = `bold ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif`;
+
+                // 자동 줄바꿈 적용
+                const textMargin = width * 0.15; // 텍스트 좌우 여백
+                const lines = wrapText(ctx, text, width - textMargin);
+                const lineCount = lines.length;
                 
-                const img = new Image();
-                // ✨ CORS 허용 서버의 이미지를 불러오기 위한 필수 설정
-                img.crossOrigin = "Anonymous";
+                // 여러 줄 텍스트 세로 중앙 정렬
+                const lineHeight = fontSize * 1.3;
+                const totalTextHeight = lineHeight * (lineCount - 1);
+                let startY = (height / 2) - (totalTextHeight / 2);
 
-                img.onload = () => {
-                    // --- 파라미터 기본값 설정 ---
-                    const text = params.get('text') || "대사를 입력하세요. (text=...)";
-                    const boxHeightPercent = parseInt(params.get('boxHeight') || '25', 10);
-                    const boxColor = params.get('boxColor') || 'rgba(0, 0, 0, 0.7)';
-                    const textColor = params.get('textColor') || 'white';
-                    const fontSize = parseInt(params.get('fontSize') || '28', 10);
-                    const padding = fontSize; // 여백을 폰트 크기와 동일하게 설정
-
-                    // --- 캔버스 설정 ---
-                    const width = img.width;
-                    const height = img.height;
-                    canvas.width = width;
-                    canvas.height = height;
-                    
-                    // 1. 원본 이미지를 그립니다.
-                    ctx.drawImage(img, 0, 0);
-
-                    // 2. 대사 상자를 그립니다.
-                    const boxHeight = height * (boxHeightPercent / 100);
-                    const boxY = height - boxHeight;
-                    ctx.fillStyle = boxColor;
-                    ctx.fillRect(0, boxY, width, boxHeight);
-
-                    // 3. 대사를 씁니다. (자동 줄바꿈 적용)
-                    ctx.fillStyle = textColor;
-                    ctx.font = `bold ${fontSize}px 'Malgun Gothic', sans-serif`;
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'top';
-                    
-                    const textX = padding;
-                    const textY = boxY + padding;
-                    const maxWidth = width - (padding * 2);
-                    const lineHeight = fontSize * 1.4;
-
-                    // 엔터(\n)를 기준으로 먼저 나누고, 각 줄에 대해 자동 줄바꿈을 적용합니다.
-                    const textLines = text.split('\n');
-                    let currentY = textY;
-                    textLines.forEach(lineText => {
-                        wrapText(ctx, lineText, textX, currentY, maxWidth, lineHeight);
-                        // 수동 줄바꿈 후 Y 위치 조정을 위해 임시로 텍스트를 다시 그려서 높이를 계산 (간단한 구현)
-                        const tempLines = [];
-                        let tempLine = '';
-                        const words = lineText.split(' ');
-                         for(let n = 0; n < words.length; n++) {
-                            const testLine = tempLine + words[n] + ' ';
-                            if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-                                tempLines.push(tempLine);
-                                tempLine = words[n] + ' ';
-                            } else {
-                                tempLine = testLine;
-                            }
-                        }
-                        tempLines.push(tempLine);
-                        currentY += tempLines.length * lineHeight;
-                    });
-                };
-
-                img.onerror = () => {
-                    canvas.style.display = 'none';
-                    loadingMessage.style.display = 'block';
-                    loadingMessage.textContent = "이미지를 불러올 수 없습니다. 이미지 링크나 CORS 정책을 확인해주세요.";
-                };
-                
-                img.src = imageUrl;
+                // 각 줄을 순서대로 그리기
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, width / 2, startY + (index * lineHeight));
+                });
             }
-
+            
+            // 페이지 로드 시 그리기
             draw();
+
+            // 사이즈 미지정 시, 브라우저 창 크기가 바뀌면 다시 그리기
+            if (!new URLSearchParams(window.location.search).has('size')) {
+                window.addEventListener('resize', draw);
+            }
         });
     </script>
 </body>
