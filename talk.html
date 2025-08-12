@@ -3,53 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>아름다운 플레이스홀더 생성기</title>
+    <title>인터랙티브 스크롤 플레이스홀더</title>
+    <!-- Google Fonts 'Poppins' 불러오기 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
     <style>
-        /* 모든 여백과 스크롤바를 없애고, 배경을 설정합니다. */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* 스크롤바 숨기기 */
-            background-color: #2c3e50; /* 캔버스 바깥의 기본 배경색 */
+            overflow: hidden;
+            background-color: #0c0a14;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        /* 캔버스를 화면에 표시하고, 그림자가 부드럽게 보이도록 합니다. */
         #placeholderCanvas {
             display: block;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            border-radius: 8px; /* 모서리를 부드럽게 */
+            box-shadow: 0 10px 50px rgba(50, 150, 255, 0.2);
+            border-radius: 8px;
+            /* 스크롤 가능할 때 커서 모양 변경 */
+            cursor: grab;
+        }
+        #placeholderCanvas:active {
+            cursor: grabbing;
         }
     </style>
 </head>
 <body>
-    <!-- 모든 그림은 이 캔버스 요소 하나에 그려집니다. -->
     <canvas id="placeholderCanvas"></canvas>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('placeholderCanvas');
             const ctx = canvas.getContext('2d');
+            
+            // --- 전역 상태 변수 ---
+            let animationFrameId;
+            let stars = [];
+            const numStars = 300;
 
-            /**
-             * 긴 텍스트를 캔버스 너비에 맞게 자동으로 줄바꿈해주는 함수
-             * @param {CanvasRenderingContext2D} context - 캔버스 2D 컨텍스트
-             * @param {string} text - 줄바꿈을 적용할 전체 텍스트
-             * @param {number} maxWidth - 텍스트가 그려질 최대 너비
-             * @returns {string[]} 줄바꿈이 적용된 텍스트 라인 배열
-             */
+            // 스크롤 관련 상태
+            let scrollY = 0;
+            let isDragging = false;
+            let lastDragY = 0;
+            let totalTextHeight = 0;
+            let maxScroll = 0;
+
+
+            // --- 헬퍼 함수 ---
             function wrapText(context, text, maxWidth) {
                 const words = text.split(' ');
                 let lines = [];
                 let currentLine = words[0] || '';
-
                 for (let i = 1; i < words.length; i++) {
                     const word = words[i];
-                    const width = context.measureText(currentLine + " " + word).width;
-                    if (width < maxWidth) {
+                    if (context.measureText(currentLine + " " + word).width < maxWidth) {
                         currentLine += " " + word;
                     } else {
                         lines.push(currentLine);
@@ -60,43 +71,127 @@
                 return lines;
             }
 
-            /**
-             * HSL 색상 값을 기반으로 랜덤하고 보기 좋은 색상을 생성하는 함수
-             * @returns {string} CSS hex 색상 코드 (예: '#aabbcc')
-             */
-            function getRandomPleasingColor() {
-                const hue = Math.floor(Math.random() * 360);
-                const saturation = Math.floor(Math.random() * 20) + 70; // 70-90% 채도
-                const lightness = Math.floor(Math.random() * 20) + 65;  // 65-85% 명도 (파스텔톤)
-                return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            // --- 애니메이션 및 그리기 함수 ---
+            function initStars(width, height) {
+                stars = [];
+                for (let i = 0; i < numStars; i++) {
+                    stars.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        radius: Math.random() * 1.5,
+                        alpha: Math.random() * 0.5 + 0.5,
+                        vx: (Math.random() - 0.5) * 0.1,
+                        vy: (Math.random() - 0.5) * 0.1,
+                    });
+                }
             }
-            
-            /**
-             * HSL 색상을 더 어둡거나 밝게 조정하여 그라데이션 효과를 주는 함수
-             * @param {string} hslColor - 원본 HSL 색상 문자열
-             * @param {number} amount - 조정할 명도 (-100 ~ 100)
-             * @returns {string} 조정된 HSL 색상 문자열
-             */
-            function adjustLightness(hslColor, amount) {
-                return hslColor.replace(/(\d+)%\)/, (match, p1) => {
-                    let lightness = parseInt(p1, 10) + amount;
-                    lightness = Math.max(0, Math.min(100, lightness)); // 0-100 범위 유지
-                    return `${lightness}%)`;
+
+            function drawCosmicBackground(width, height) {
+                const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.7);
+                gradient.addColorStop(0, '#3a4a7a');
+                gradient.addColorStop(1, '#111827');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+
+                stars.forEach(star => {
+                    star.x += star.vx; star.y += star.vy;
+                    if (Math.random() > 0.995) star.alpha = Math.random() * 0.5 + 0.5;
+                    if (star.x < 0) star.x = width; if (star.x > width) star.x = 0;
+                    if (star.y < 0) star.y = height; if (star.y > height) star.y = 0;
+                    ctx.beginPath(); ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 224, ${star.alpha})`;
+                    ctx.fill();
                 });
             }
 
-            function draw() {
-                // 1. URL 파라미터 읽기
+            function drawScrollbar(width, height) {
+                if (maxScroll <= 0) return; // 스크롤이 필요 없으면 그리지 않음
+
+                const scrollbarWidth = 8;
+                const trackX = width - scrollbarWidth - 4;
+                const trackHeight = height;
+
+                // 스크롤바 트랙
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.fillRect(trackX, 0, scrollbarWidth, trackHeight);
+                
+                // 스크롤바 손잡이(thumb)
+                const thumbHeight = Math.max(20, (height / totalTextHeight) * height);
+                const thumbY = (scrollY / maxScroll) * (height - thumbHeight);
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.fillRect(trackX, thumbY, scrollbarWidth, thumbHeight);
+            }
+            
+            // --- 메인 렌더링 함수 ---
+            function render() {
+                const width = canvas.width / (window.devicePixelRatio || 1);
+                const height = canvas.height / (window.devicePixelRatio || 1);
+                
+                // 배경 그리기
                 const params = new URLSearchParams(window.location.search);
+                const userBgColor = params.get('bgColor');
+                if (userBgColor) {
+                    ctx.fillStyle = `#${userBgColor}`;
+                    ctx.fillRect(0, 0, width, height);
+                } else {
+                    drawCosmicBackground(width, height);
+                }
 
-                // 사이즈 설정 (기본값: 브라우저 창 크기의 80%)
+                // 텍스트 설정 및 그리기
+                const text = params.get('text') || `This is a scrollable area.\nUse your mouse wheel\nor drag to navigate\nthrough the content.\nThe font size is fixed at 50px.\nEnjoy the cosmic shimmer!`;
+                const textColor = params.get('textColor') || '#FFFFFF';
+
+                const horizontalMargin = width * 0.1;
+                const textMaxWidth = width - (horizontalMargin * 2);
+
+                ctx.font = `600 50px 'Poppins', sans-serif`; // 고정 폰트 크기 및 Poppins 폰트 적용
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                const lines = wrapText(ctx, text, textMaxWidth);
+                const lineHeight = 50 * 1.3;
+                totalTextHeight = lines.length * lineHeight;
+                
+                // 스크롤 최대값 계산
+                const verticalMargin = height * 0.1;
+                maxScroll = Math.max(0, totalTextHeight - height + (verticalMargin * 2));
+                
+                // 스크롤 위치 제한
+                scrollY = Math.max(0, Math.min(scrollY, maxScroll));
+                
+                // 그리기 시작 Y 위치 계산 (스크롤 적용)
+                const startY = (height / 2) - (totalTextHeight / 2) + (lineHeight/2);
+                
+                ctx.save();
+                ctx.rect(0, 0, width, height);
+                ctx.clip(); // 캔버스 영역 밖으로 텍스트가 그려지지 않도록 클리핑
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, width / 2, startY + (index * lineHeight) - scrollY);
+                });
+                
+                ctx.restore();
+
+                // 스크롤바 그리기
+                drawScrollbar(width, height);
+                
+                // 애니메이션 프레임 요청 (애니메이션 배경일 때만)
+                if (!userBgColor) {
+                    animationFrameId = requestAnimationFrame(render);
+                }
+            }
+
+            // --- 초기 설정 및 이벤트 리스너 ---
+            function setup() {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                
+                const params = new URLSearchParams(window.location.search);
                 const sizeParam = params.get('size')?.split('x');
-                const defaultWidth = window.innerWidth * 0.9;
-                const defaultHeight = window.innerHeight * 0.9;
-                const width = parseInt(sizeParam?.[0], 10) || defaultWidth;
-                const height = parseInt(sizeParam?.[1], 10) || defaultHeight;
+                const width = parseInt(sizeParam?.[0], 10) || window.innerWidth * 0.8;
+                const height = parseInt(sizeParam?.[1], 10) || window.innerHeight * 0.7;
 
-                // 캔버스 크기 및 DPR 설정 (레티나 디스플레이 대응)
                 const dpr = window.devicePixelRatio || 1;
                 canvas.style.width = `${width}px`;
                 canvas.style.height = `${height}px`;
@@ -104,62 +199,36 @@
                 canvas.height = height * dpr;
                 ctx.scale(dpr, dpr);
 
-                // 색상 설정
-                const userBgColor = params.get('bgColor');
-                const startColor = userBgColor || getRandomPleasingColor();
-                const endColor = adjustLightness(startColor, -20); // 살짝 어두운 색으로 그라데이션
-
-                // 배경색의 밝기를 계산하여 적절한 텍스트 색상(검정/흰색) 자동 선택
-                const r = parseInt(startColor.slice(1, 3), 16);
-                const g = parseInt(startColor.slice(3, 5), 16);
-                const b = parseInt(startColor.slice(5, 7), 16);
-                const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b; // 밝기 계산 공식
-                const defaultTextColor = luma < 140 ? '#FFFFFF' : '#333333';
-                const textColor = params.get('textColor') || defaultTextColor;
-
-                // 텍스트 설정
-                const text = params.get('text') || `${width} x ${height}`;
-
-                // 2. 아름다운 그라데이션 배경 그리기
-                const gradient = ctx.createLinearGradient(0, 0, width, height);
-                gradient.addColorStop(0, startColor);
-                gradient.addColorStop(1, endColor);
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, width, height);
+                if (!params.get('bgColor')) initStars(width, height);
                 
-                // 3. 텍스트 그리기 (자동 줄바꿈 지원)
-                ctx.fillStyle = textColor;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
-                // 동적 폰트 크기 계산
-                const customFontSize = parseInt(params.get('fontSize'), 10);
-                const baseFontSize = Math.max(16, Math.floor(width / 15));
-                const fontSize = customFontSize || baseFontSize;
-                ctx.font = `bold ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif`;
-
-                // 자동 줄바꿈 적용
-                const textMargin = width * 0.15; // 텍스트 좌우 여백
-                const lines = wrapText(ctx, text, width - textMargin);
-                const lineCount = lines.length;
-                
-                // 여러 줄 텍스트 세로 중앙 정렬
-                const lineHeight = fontSize * 1.3;
-                const totalTextHeight = lineHeight * (lineCount - 1);
-                let startY = (height / 2) - (totalTextHeight / 2);
-
-                // 각 줄을 순서대로 그리기
-                lines.forEach((line, index) => {
-                    ctx.fillText(line, width / 2, startY + (index * lineHeight));
-                });
+                scrollY = 0; // 리사이즈 시 스크롤 초기화
+                render(); // 첫 렌더링
             }
-            
-            // 페이지 로드 시 그리기
-            draw();
 
-            // 사이즈 미지정 시, 브라우저 창 크기가 바뀌면 다시 그리기
+            // 스크롤 이벤트 리스너
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                scrollY += e.deltaY * 0.5; // 스크롤 감도 조절
+                if (!new URLSearchParams(window.location.search).has('bgColor')) {
+                    // 애니메이션이 아닐 경우, 수동으로 렌더링 호출
+                    render();
+                }
+            });
+
+            canvas.addEventListener('mousedown', (e) => { isDragging = true; lastDragY = e.clientY; });
+            canvas.addEventListener('touchstart', (e) => { isDragging = true; lastDragY = e.touches[0].clientY; });
+            
+            window.addEventListener('mousemove', (e) => { if (!isDragging) return; scrollY += (lastDragY - e.clientY); lastDragY = e.clientY; if (!new URLSearchParams(window.location.search).has('bgColor')) render(); });
+            window.addEventListener('touchmove', (e) => { if (!isDragging) return; scrollY += (lastDragY - e.touches[0].clientY); lastDragY = e.touches[0].clientY; if (!new URLSearchParams(window.location.search).has('bgColor')) render(); });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            window.addEventListener('touchend', () => { isDragging = false; });
+            canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+            // --- 실행 ---
+            setup();
             if (!new URLSearchParams(window.location.search).has('size')) {
-                window.addEventListener('resize', draw);
+                window.addEventListener('resize', setup);
             }
         });
     </script>
