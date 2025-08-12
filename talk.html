@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>동적 중앙 확장 플레이스홀더</title>
+    <title>속마음</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
@@ -26,36 +26,37 @@
             z-index: 1;
         }
         
-        /* 텍스트를 감싸는 스크롤 컨테이너. 이제 Flexbox 컨테이너 역할도 겸합니다. */
+        /* 스크롤을 담당하는 컨테이너 */
         #text-container {
             position: relative; z-index: 2;
             width: 100%; height: 100%;
-            display: flex; /* Flexbox 활성화 */
-            justify-content: center; /* 수평 중앙 정렬 */
-            /* align-items는 JS가 동적으로 제어합니다. */
-            overflow: hidden; /* textarea의 스크롤바를 숨기기 위함 */
+            overflow-y: auto;
+
+            /* 스크롤바 디자인 */
+            &::-webkit-scrollbar { width: 10px; }
+            &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+            &::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.4); border-radius: 5px; }
+            &::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.6); }
         }
         
-        /* 사용자가 실제로 입력하는 textarea. 보이지 않게 스타일링합니다. */
-        #text-input {
-            width: 80%; /* 텍스트 영역의 좌우 폭 */
-            max-width: 1000px; /* 너무 넓어지지 않도록 최대 폭 지정 */
-            height: auto;
-            /* 외관 초기화 */
-            background: transparent;
-            border: none;
-            outline: none;
-            box-shadow: none;
-            resize: none; /* 크기 조절 핸들 제거 */
-            /* 폰트 및 텍스트 스타일 */
+        /* 텍스트를 보여주는 div 요소 */
+        #text-content {
+            display: block;
+            width: 80%;
+            max-width: 1000px;
+            margin: 0 auto; /* 가로 중앙 정렬 */
+            
             color: white;
             font: 600 50px 'Poppins', sans-serif;
             text-align: center;
-            padding: 0;
             line-height: 1.5;
-            /* 스크롤바 숨기기 (웹킷, 파이어폭스) */
-            scrollbar-width: none; /* Firefox */
-            &::-webkit-scrollbar { display: none; }
+            white-space: pre-wrap; /* \n을 줄바꿈으로 인식 */
+            word-break: break-word; /* 긴 단어 자동 줄바꿈 */
+            
+            /* 패딩은 JS가 제어합니다. */
+            padding-top: 0; 
+            padding-bottom: 5vh;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -63,19 +64,17 @@
     <div id="placeholder-container">
         <canvas id="cosmic-canvas"></canvas>
         <div id="text-container">
-            <textarea id="text-input" spellcheck="false"></textarea>
+            <div id="text-content"></div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const container = document.getElementById('text-container');
-            const textarea = document.getElementById('text-input');
+            const textContentDiv = document.getElementById('text-content');
             const canvas = document.getElementById('cosmic-canvas');
             const ctx = canvas.getContext('2d');
             
             let stars = [], numStars = 500;
-            let isInitiallyCentered = true;
 
             // --- 애니메이션 로직 (변경 없음) ---
             function initStars(w, h) { stars = []; for (let i = 0; i < numStars; i++) { stars.push({ x: Math.random()*w, y: Math.random()*h, r: Math.random()*1.5, a: Math.random()*0.5+0.5, vx: (Math.random()-0.5)*0.1, vy: (Math.random()-0.5)*0.1 }); } }
@@ -83,31 +82,20 @@
             function animate() { const dpr=window.devicePixelRatio||1; drawCosmicBackground(canvas.width/dpr, canvas.height/dpr); requestAnimationFrame(animate); }
 
             /**
-             * [핵심] 텍스트 높이에 따라 레이아웃과 스크롤을 동적으로 조절하는 함수
+             * 텍스트 높이에 따라 상단 패딩을 동적으로 조절하는 함수
              */
             function updateLayout() {
-                // textarea의 높이를 내용에 맞게 자동 조절
-                textarea.style.height = 'auto';
-                textarea.style.height = `${textarea.scrollHeight}px`;
-                
-                const contentHeight = textarea.scrollHeight;
-                const containerHeight = container.clientHeight;
+                const el = textContentDiv;
+                const contentHeight = el.scrollHeight;
+                const viewHeight = window.innerHeight;
 
-                if (contentHeight > containerHeight) {
-                    // 내용이 컨테이너보다 클 때: 스크롤 모드
-                    container.style.alignItems = 'flex-start'; // 상단 정렬로 변경
-                    textarea.style.overflowY = 'scroll'; // textarea 자체 스크롤 활성화
-
-                    // 처음으로 스크롤 모드가 될 때만 중앙으로 스크롤
-                    if (isInitiallyCentered) {
-                        textarea.scrollTop = (contentHeight - containerHeight) / 2;
-                        isInitiallyCentered = false;
-                    }
+                if (contentHeight < viewHeight) {
+                    // 내용이 화면보다 짧을 때: 중앙 정렬
+                    const paddingTop = (viewHeight - contentHeight) / 2;
+                    el.style.paddingTop = `${paddingTop}px`;
                 } else {
-                    // 내용이 컨테이너보다 작을 때: 중앙 정렬 모드
-                    container.style.alignItems = 'center';
-                    textarea.style.overflowY = 'hidden';
-                    isInitiallyCentered = true; // 다시 중앙 정렬 모드로 돌아왔으므로 초기화
+                    // 내용이 화면보다 길 때: 상단 패딩 고정 (스크롤 모드)
+                    el.style.paddingTop = '5vh'; 
                 }
             }
 
@@ -120,26 +108,23 @@
                 ctx.scale(dpr, dpr);
                 
                 const params = new URLSearchParams(window.location.search);
-                const defaultText = `Live Editable Text\n\nStart typing...`;
-                textarea.value = params.get('text') || defaultText;
+                const defaultText = `This is a Read-Only Placeholder.\n\nThe text expands from the center.\n\nContent is set via URL parameters.`;
+                textContentDiv.textContent = params.get('text') || defaultText;
                 
                 const textColor = params.get('textColor');
-                if (textColor) textarea.style.color = `#${textColor}`;
+                if (textColor) textContentDiv.style.color = `#${textColor}`;
 
                 initStars(width, height);
-                updateLayout(); // 초기 레이아웃 설정
+                updateLayout(); // 초기 로드 시 레이아웃 설정
             }
 
             // --- 실행 및 이벤트 리스너 ---
             setup();
             animate();
             
-            // 사용자가 입력할 때마다 레이아웃 업데이트
-            textarea.addEventListener('input', updateLayout);
-            // 창 크기가 바뀔 때마다 재설정
-            window.addEventListener('resize', () => {
-                setup();
-            });
+            // 입력 기능이 없으므로 'input' 리스너는 제거되었습니다.
+            // 창 크기가 바뀔 때만 레이아웃을 다시 계산합니다.
+            window.addEventListener('resize', setup);
         });
     </script>
 </body>
