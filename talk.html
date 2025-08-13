@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <!-- [핵심] 모바일 장치가 페이지를 올바르게 렌더링하도록 뷰포트 설정 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>띄어쓰기 기준 줄바꿈 플레이с홀더 (수정)</title>
+    <title>반응형 인터랙티브 플레이с홀더</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet">
@@ -34,22 +35,24 @@
             &::-webkit-scrollbar { width: 10px; }
             &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
             &::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.4); border-radius: 5px; }
-            &::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.6); }
         }
         
         #text-content {
             display: block;
-            width: 80%;
+            width: 90%; /* 모바일에서 좌우 여백을 조금 더 확보 */
             max-width: 1000px;
             margin: 0 auto;
             
             color: white;
-            font: 600 50px 'Poppins', sans-serif;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            /* [핵심] 화면 크기에 따라 폰트 크기가 자동으로 조절됩니다. */
+            /* 최소 24px, 중간(화면너비의 4%), 최대 50px */
+            font-size: clamp(1.5rem, 4vw, 3.125rem);
+            
             text-align: center;
             line-height: 1.5;
             white-space: pre-wrap;
-            
-            /* [핵심 수정] CJK(한중일) 텍스트의 단어 중간 줄바꿈을 방지합니다. */
             word-break: keep-all;
 
             padding-top: 0; 
@@ -72,7 +75,8 @@
             const canvas = document.getElementById('cosmic-canvas');
             const ctx = canvas.getContext('2d');
             
-            let stars = [], numStars = 500;
+            let stars = [];
+            let numStars; // 별의 개수를 동적으로 설정
 
             // --- 애니메이션 로직 (변경 없음) ---
             function initStars(w, h) { stars = []; for (let i = 0; i < numStars; i++) { stars.push({ x: Math.random()*w, y: Math.random()*h, r: Math.random()*1.5, a: Math.random()*0.5+0.5, vx: (Math.random()-0.5)*0.1, vy: (Math.random()-0.5)*0.1 }); } }
@@ -96,6 +100,11 @@
                 const width = window.innerWidth;
                 const height = window.innerHeight;
                 const dpr = window.devicePixelRatio || 1;
+
+                // [핵심] 모바일 성능 최적화: 화면 너비에 따라 별 개수 조절
+                const isMobile = width < 768;
+                numStars = isMobile ? 150 : 500;
+                
                 canvas.width = width * dpr;
                 canvas.height = height * dpr;
                 ctx.scale(dpr, dpr);
@@ -104,8 +113,7 @@
                 const userText = params.get('text');
                 const textColor = params.get('textColor');
                 
-                // 기본 텍스트를 수정하여 기능이 잘 보이는지 확인
-                const defaultText = `이 긴 한국어 문장은 이제 단어 중간에서 절대 잘리지 않습니다. 오직 띄어쓰기에서만 줄바꿈이 일어납니다. 안녕하세요반갑습니다.`;
+                const defaultText = `Fully Responsive and Mobile-Optimized. The font size and performance adjust automatically.`;
                 
                 textContentDiv.textContent = userText || defaultText;
                 
